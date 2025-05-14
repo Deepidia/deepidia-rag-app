@@ -3,7 +3,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from rag.utils.topic_generator import ViralTopicGenerator, VALID_TOPIC_TYPES
+from typing import Optional
+from rag import ViralTopicGenerator
 
 app = FastAPI()
 
@@ -24,7 +25,9 @@ app.add_middleware(
 
 class TopicRequest(BaseModel):
     model_type: str = "openai"  # Default
-    topic_type: str
+    category: str = "Technology"
+    scope: str = "Trending Now"
+    keyword: Optional[str] = None
     num_ideas: int = 5
 
 
@@ -33,34 +36,22 @@ async def root():
     return {"message": "API Is Active!"}
 
 
-@app.get("/api/v1/generate_viral_ideas")
-async def get_topics(request: TopicRequest):
-    try:
-        generator = ViralTopicGenerator(model_type=request.model_type)
-        ideas = generator.generate_viral_ideas(request.topic_type, request.num_ideas)
-
-        return JSONResponse(
-            content={
-                "model_type": request.model_type,
-                "topic_type": request.topic_type,
-                "ideas": ideas,
-            },
-            status_code=200,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.post("/api/v1/generate_viral_ideas")
 async def get_topics(request: TopicRequest):
     try:
         generator = ViralTopicGenerator(model_type=request.model_type)
-        ideas = generator.generate_viral_ideas(request.topic_type, request.num_ideas)
+        ideas = generator.generate_viral_ideas(
+            topic_type=request.category,
+            scope=request.scope,
+            keyword=request.keyword,
+            num_ideas=request.num_ideas)
 
         return JSONResponse(
             content={
-                "model_type": request.model_type,
-                "topic_type": request.topic_type,
+                "model": request.model_type,
+                "category": request.category,
+                "scope": request.scope,
+                "keyword": request.keyword,  # Will be None if not provided
                 "ideas": ideas,
             },
             status_code=200,

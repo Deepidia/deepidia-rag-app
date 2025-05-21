@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 from rag import ViralTopicGenerator
+from rag.agent_content_creation.content_bank import generate_ideas_and_store
 
 app = FastAPI()
 
@@ -31,6 +32,10 @@ class TopicRequest(BaseModel):
     num_ideas: int = 5
 
 
+class TopicStoreRequest(TopicRequest):
+    username: str
+
+
 @app.get("/")
 async def root():
     return {"message": "API Is Active!"}
@@ -53,6 +58,33 @@ async def get_topics(request: TopicRequest):
                 "scope": request.scope,
                 "keyword": request.keyword,  # Will be None if not provided
                 "ideas": ideas,
+            },
+            status_code=200,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/content_creation")
+async def get_topics_and_store(request: TopicStoreRequest):
+    try:
+        ideas, spreadsheet_url, drive_url = generate_ideas_and_store(
+            request.model_type,
+            request.category,
+            request.scope,
+            request.keyword,
+            request.num_ideas,
+            request.username
+        )
+        return JSONResponse(
+            content={
+                "model": request.model_type,
+                "category": request.category,
+                "scope": request.scope,
+                "keyword": request.keyword,
+                "ideas": ideas,
+                "spreadsheet_url": spreadsheet_url,
+                "drive_url": drive_url,
             },
             status_code=200,
         )

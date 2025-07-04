@@ -48,7 +48,7 @@ class TopicStoreRequest(TopicRequest):
 
 
 class TopicStorePostgresRequest(TopicRequest):
-    user_id: str  # For PostgreSQL storage
+    name: str  # For PostgreSQL storage
     export_formats: Optional[List[str]] = ["csv"]  # ["csv", "json", "both", "none"]
 
 
@@ -91,7 +91,7 @@ async def get_topics_and_store_postgres(request: TopicStorePostgresRequest):
             request.scope,
             request.keyword,
             request.num_ideas,
-            request.user_id,
+            request.name,
             request.export_formats
         )
         
@@ -102,7 +102,7 @@ async def get_topics_and_store_postgres(request: TopicStorePostgresRequest):
             "keyword": request.keyword,
             "ideas": ideas,
             "storage_message": storage_message,
-            "user_id": request.user_id,
+            "name": request.name,
             "export_formats": request.export_formats,
             "export_info": export_info,
         }
@@ -115,13 +115,13 @@ async def get_topics_and_store_postgres(request: TopicStorePostgresRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/v1/download/{user_id}")
-async def download_user_file(user_id: str, format: str = "csv", limit: int = 100):
+@app.get("/api/v1/download/{name}")
+async def download_user_file(name: str, format: str = "csv", limit: int = 100):
     """
     Download user's ideas as CSV, Excel, or JSON file
     
     Args:
-        user_id: The user ID
+        name: The user name
         format: Download format - "csv", "excel", or "json"
         limit: Maximum number of ideas to include
     """
@@ -134,14 +134,14 @@ async def download_user_file(user_id: str, format: str = "csv", limit: int = 100
             )
         
         # Get user's ideas from database
-        ideas = get_user_ideas_from_postgres(user_id, limit)
+        ideas = get_user_ideas_from_postgres(name, limit)
         
         if not ideas:
             return JSONResponse(
                 status_code=200,
                 content={
                     "message": "No ideas found for this user yet",
-                    "user_id": user_id,
+                    "name": name,
                     "suggestions": [
                         "Generate your first ideas using POST /api/v1/content_creation",
                         "Try different categories like Technology, Business, or Lifestyle",
@@ -153,11 +153,11 @@ async def download_user_file(user_id: str, format: str = "csv", limit: int = 100
                         "scope": "Trending Now",
                         "keyword": "AI",
                         "num_ideas": 5,
-                        "user_id": user_id,
+                        "name": name,
                         "export_formats": [format.lower()]
                     },
                     "available_formats": ["csv", "excel", "json"],
-                    "download_endpoint": f"/api/v1/download/{user_id}?format={{format}}&limit={{limit}}"
+                    "download_endpoint": f"/api/v1/download/{name}?format={{format}}&limit={{limit}}"
                 }
             )
         
@@ -175,7 +175,7 @@ async def download_user_file(user_id: str, format: str = "csv", limit: int = 100
             # Export to CSV
             csv_filepath = export_ideas_to_csv(
                 formatted_ideas, 
-                user_id, 
+                name, 
                 ideas[0]["model_type"], 
                 ideas[0]["category"], 
                 ideas[0]["scope"], 
@@ -184,7 +184,7 @@ async def download_user_file(user_id: str, format: str = "csv", limit: int = 100
             
             return FileResponse(
                 path=csv_filepath,
-                filename=f"{user_id}_ideas.csv",
+                filename=f"{name}_ideas.csv",
                 media_type="text/csv"
             )
             
@@ -192,7 +192,7 @@ async def download_user_file(user_id: str, format: str = "csv", limit: int = 100
             # Export to Excel
             excel_filepath = export_ideas_to_excel(
                 formatted_ideas, 
-                user_id, 
+                name, 
                 ideas[0]["model_type"], 
                 ideas[0]["category"], 
                 ideas[0]["scope"], 
@@ -201,7 +201,7 @@ async def download_user_file(user_id: str, format: str = "csv", limit: int = 100
             
             return FileResponse(
                 path=excel_filepath,
-                filename=f"{user_id}_ideas.xlsx",
+                filename=f"{name}_ideas.xlsx",
                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
             
@@ -209,7 +209,7 @@ async def download_user_file(user_id: str, format: str = "csv", limit: int = 100
             # Export to JSON
             json_filepath = export_ideas_to_json(
                 formatted_ideas, 
-                user_id, 
+                name, 
                 ideas[0]["model_type"], 
                 ideas[0]["category"], 
                 ideas[0]["scope"], 
@@ -218,7 +218,7 @@ async def download_user_file(user_id: str, format: str = "csv", limit: int = 100
             
             return FileResponse(
                 path=json_filepath,
-                filename=f"{user_id}_ideas.json",
+                filename=f"{name}_ideas.json",
                 media_type="application/json"
             )
         
@@ -236,19 +236,19 @@ async def get_available_export_formats():
             "csv": {
                 "description": "Comma-separated values file",
                 "benefits": ["No quota limits", "Works offline", "Import to any spreadsheet", "Appends to existing file"],
-                "download_endpoint": "/api/v1/download/{user_id}?format=csv",
+                "download_endpoint": "/api/v1/download/{name}?format=csv",
                 "recommended": True
             },
             "excel": {
                 "description": "Microsoft Excel file (.xlsx)",
                 "benefits": ["Native Excel format", "Preserves formatting", "Easy to work with", "Appends to existing file"],
-                "download_endpoint": "/api/v1/download/{user_id}?format=excel",
+                "download_endpoint": "/api/v1/download/{name}?format=excel",
                 "recommended": True
             },
             "json": {
                 "description": "JavaScript Object Notation file",
                 "benefits": ["Structured data", "Easy to parse", "Good for APIs", "Appends to existing file"],
-                "download_endpoint": "/api/v1/download/{user_id}?format=json",
+                "download_endpoint": "/api/v1/download/{name}?format=json",
                 "recommended": True
             }
         },
@@ -260,9 +260,9 @@ async def get_available_export_formats():
             "no_export": {"export_formats": ["none"]}
         },
         "download_endpoints": {
-            "csv": "/api/v1/download/{user_id}?format=csv",
-            "excel": "/api/v1/download/{user_id}?format=excel", 
-            "json": "/api/v1/download/{user_id}?format=json"
+            "csv": "/api/v1/download/{name}?format=csv",
+            "excel": "/api/v1/download/{name}?format=excel", 
+            "json": "/api/v1/download/{name}?format=json"
         },
         "note": "All exports append to existing files, maintaining a single consolidated file per user"
     }

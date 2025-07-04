@@ -5,7 +5,7 @@ google-generativeai==0.8.5
 langchain==0.3.23
 numpy==2.2.4
 openai==0.28.0
-pandas==2.2.4
+pandas
 openpyxl==3.1.2
 pydantic==2.11.3
 python-dotenv==1.1.0
